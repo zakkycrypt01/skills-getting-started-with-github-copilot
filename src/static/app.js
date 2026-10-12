@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Clear loading message
       activitiesList.innerHTML = "";
+      activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
@@ -25,9 +26,31 @@ document.addEventListener("DOMContentLoaded", () => {
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <strong>Participants:</strong>
+            <ul class="participants-list"></ul>
+          </div>
         `;
 
         activitiesList.appendChild(activityCard);
+
+        const participantsList = activityCard.querySelector(".participants-list");
+        details.participants.forEach((participant) => {
+          const participantItem = document.createElement("li");
+          const participantEmail = document.createElement("span");
+          participantEmail.textContent = participant;
+
+          const removeButton = document.createElement("button");
+          removeButton.type = "button";
+          removeButton.className = "remove-participant";
+          removeButton.setAttribute("aria-label", `Remove ${participant}`);
+          removeButton.title = "Remove participant";
+          removeButton.textContent = "x";
+          removeButton.addEventListener("click", () => removeParticipant(name, participant, removeButton));
+
+          participantItem.append(participantEmail, removeButton);
+          participantsList.appendChild(participantItem);
+        });
 
         // Add option to select dropdown
         const option = document.createElement("option");
@@ -38,6 +61,34 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
       console.error("Error fetching activities:", error);
+    }
+  }
+
+  async function removeParticipant(activity, email, removeButton) {
+    removeButton.disabled = true;
+
+    try {
+      const response = await fetch(
+        `/activities/${encodeURIComponent(activity)}/signup?email=${encodeURIComponent(email)}`,
+        { method: "DELETE" }
+      );
+      const result = await response.json();
+
+      messageDiv.textContent = result.message || result.detail || "An error occurred";
+      messageDiv.className = response.ok ? "success" : "error";
+      messageDiv.classList.remove("hidden");
+
+      if (response.ok) {
+        await fetchActivities();
+      } else {
+        removeButton.disabled = false;
+      }
+    } catch (error) {
+      messageDiv.textContent = "Failed to remove participant. Please try again.";
+      messageDiv.className = "error";
+      messageDiv.classList.remove("hidden");
+      console.error("Error removing participant:", error);
+      removeButton.disabled = false;
     }
   }
 
@@ -62,6 +113,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        await fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
